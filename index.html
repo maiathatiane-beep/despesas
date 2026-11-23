@@ -49,7 +49,7 @@ td.n,th.n{text-align:right}td.n input{text-align:right}
 </style></head><body>
 <header><h1>Controle de Despesas</h1>
 <nav id="nav"><button data-t="painel" class="on">Painel</button><button data-t="lanc">Lançamentos</button><button data-t="rec">Receitas</button><button data-t="imp">Importar fatura</button><button data-t="inv">Investimentos</button><button data-t="dados">Categorias e backup</button></nav>
-<span class="sp"></span><span id="syncSt" style="font-size:11px;margin-right:10px"></span><span id="savedAt" style="font-size:12px;color:#cfe0da"></span></header>
+<span class="sp"></span><button id="btLock" onclick="bloquear()" title="Bloquear o app" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:99px;padding:4px 10px;margin-right:10px;cursor:pointer;font-size:13px">🔒 Bloquear</button><span id="syncSt" style="font-size:11px;margin-right:10px"></span><span id="savedAt" style="font-size:12px;color:#cfe0da"></span></header>
 <main><div id="alerta"></div>
 <section id="t-painel">
  <div class="bar">Mês <select id="pMes"></select> Pessoa <select id="pPes"></select>
@@ -630,7 +630,30 @@ function tab(t){curTab=t;document.querySelectorAll('#nav button').forEach(b=>b.c
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
 ['pMes','pPes','pRange'].forEach(i=>$(i).onchange=renderPainel);
 function render(){initSels();renderAlerta();if(curTab==='imp')renderChips();({painel:renderPainel,lanc:renderLanc,rec:renderRec,dados:renderDados,inv:renderInv}[curTab]||(()=>{}))()}
-async function boot(){if((MODE==='gas'||MODE==='web')&&!SY.token){const t=await ask('Digite o código de acesso da sua planilha (definido no script):',true);if(t){SY.token=t.trim();localStorage.setItem(SK,JSON.stringify(SY))}}
+
+const LK=KEY+'-lock',LH=KEY+'-hash';
+async function sha(t){const h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('cd:'+t));return[...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+async function bloquear(){let code=SY.token;
+ if(!code){code=await ask('Crie um código para bloquear o app (anote, ele será pedido para desbloquear):',true);if(!code)return;code=code.trim()}
+ if(!await ask('Bloquear o app? O código de acesso será pedido para abrir de novo.'))return;
+ if(S&&S.dirty){try{await push()}catch(e){}}
+ localStorage.setItem(LH,await sha(code));localStorage.setItem(LK,'1');
+ SY.token='';localStorage.setItem(SK,JSON.stringify(SY));location.reload()}
+function telaBloqueio(){return new Promise(res=>{const w=document.createElement('div');w.id='lockScr';
+ w.style.cssText='position:fixed;inset:0;z-index:999;background:linear-gradient(135deg,#6b3a5e,#a8507a 55%,#e08aa8);display:flex;align-items:center;justify-content:center;padding:16px';
+ w.innerHTML=`<div style="background:#fff;border-radius:20px;padding:26px 22px;max-width:340px;width:100%;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.25)">
+  <div style="font-size:40px">🔒</div><h3 style="margin:6px 0 4px">App bloqueado</h3><p class="mut" style="margin:0 0 14px">Digite o código de acesso</p>
+  <input id="lkIn" type="password" inputmode="text" autocomplete="current-password" style="width:100%;padding:10px;border:1.5px solid #e08aa8;border-radius:10px;font-size:16px;text-align:center">
+  <div id="lkErr" style="color:#c9485b;font-size:12px;min-height:18px;margin-top:6px"></div>
+  <button id="lkBt" class="b" style="width:100%;margin-top:6px">Desbloquear</button></div>`;
+ document.body.appendChild(w);const inp=w.querySelector('#lkIn'),err=w.querySelector('#lkErr');setTimeout(()=>inp.focus(),50);
+ async function go(){const c=inp.value.trim();if(!c)return;err.textContent='verificando…';let ok=false;
+  const h=localStorage.getItem(LH);if(h&&h===await sha(c))ok=true;
+  else if(MODE!=='local'&&navigator.onLine){const old=SY.token;SY.token=c;try{const r=JSON.parse(await rGet()||'{}');ok=!r.error}catch(e){}if(!ok)SY.token=old}
+  if(!ok){err.textContent='Código incorreto';inp.value='';inp.focus();return}
+  if(MODE!=='local'||SY.token)SY.token=c;localStorage.setItem(SK,JSON.stringify(SY));localStorage.removeItem(LK);w.remove();res()}
+ w.querySelector('#lkBt').onclick=go;inp.addEventListener('keydown',e=>{if(e.key==='Enter')go()})})}
+async function boot(){if(localStorage.getItem(LK))await telaBloqueio();if((MODE==='gas'||MODE==='web')&&!SY.token){const t=await ask('Digite o código de acesso da sua planilha (definido no script):',true);if(t){SY.token=t.trim();localStorage.setItem(SK,JSON.stringify(SY))}}
  S=null;try{const j=localStorage.getItem(KEY);if(j){S=JSON.parse(j);migrate()}}catch(e){}
  if(!S)fresh();await pull(true);if(!S)fresh();
 if(propagate())save(true);initSels();['pMes','lMes','rMes','iMes'].forEach(i=>{const e=$(i);if(![...e.options].some(o=>o.value===curM()))e.insertAdjacentHTML('afterbegin',`<option value="${curM()}">${ml(curM())}</option>`);e.value=curM()});curTab='lanc';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==='lanc'));document.querySelectorAll('main>section').forEach(x=>x.classList.toggle('hidden',x.id!=='t-lanc'));$('savedAt').textContent=S.saved?'salvo '+new Date(S.saved).toLocaleString('pt-BR'):'';render();}
