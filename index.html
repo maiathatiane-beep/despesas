@@ -527,11 +527,16 @@ function invVal(a,m){const ini=a.data.slice(0,7);if(m<ini)return{v:0,real:false,
  if(a.resgatado&&a.resgatado<=m)return{v:0,real:true,aport:0};
  return{v:bal,real,aport:movsAte(a,m)}}
 function investido(a,m){return +a.aplicado+(a.movs||[]).filter(x=>x.data.slice(0,7)<=m).reduce((s,x)=>s+ +x.valor,0)}
+function irIsento(a){return /LCI|LCA|POUP|ISENT|CRI|CRA|DEB.*INCENT/i.test(a.prod||'')}
+function irDias(a,m){const fim=m>=curM()?today():(m+'-'+String(new Date(+m.slice(0,4),+m.slice(5,7),0).getDate()).padStart(2,'0'));return Math.max(0,Math.round((new Date(fim)-new Date(a.data))/864e5))}
+function irAliq(a,m){if(irIsento(a))return 0;const d=irDias(a,m);return d<=180?.225:d<=360?.2:d<=720?.175:.15}
+function invIR(a,m){const r=invVal(a,m).v-investido(a,m);return r>0?r*irAliq(a,m):0}
 function renderInv(){invS();const m=$('vMes').value||curM(),pm=addM(m,-1);const A=S.inv.filter(a=>a.data.slice(0,7)<=m&&!(a.resgatado&&a.resgatado<m));
  const tot=A.reduce((s,a)=>s+invVal(a,m).v,0),totP=S.inv.reduce((s,a)=>s+invVal(a,pm).v,0),aport=A.reduce((s,a)=>s+(a.data.slice(0,7)===m?+a.aplicado:0)+invVal(a,m).aport,0);
  const rend=tot-totP-aport,inv=A.reduce((s,a)=>s+investido(a,m),0),liq=A.filter(a=>a.liq==='diaria').reduce((s,a)=>s+invVal(a,m).v,0);
+ const ir=A.reduce((s,a)=>s+invIR(a,m),0);
  const prox=S.inv.filter(a=>a.venc&&a.venc>=today()&&!a.resgatado).sort((x,y)=>x.venc.localeCompare(y.venc))[0];
- $('vKpis').innerHTML=[['Patrimônio aplicado',brl(tot)],['Rendimento no mês',`<span class="${rend<0?'neg':'pos'}">${brl(rend)}</span>`],['Rendimento acumulado',`<span class="${tot-inv<0?'neg':'pos'}">${brl(tot-inv)}</span>`],
+ $('vKpis').innerHTML=[['Saldo bruto',brl(tot)],['IR estimado',`<span class="neg">−${brl(ir)}</span>`],['Saldo líquido',brl(tot-ir)],['Rendimento no mês',`<span class="${rend<0?'neg':'pos'}">${brl(rend)}</span>`],['Rendimento acumulado',`<span class="${tot-inv<0?'neg':'pos'}">${brl(tot-inv)}</span>`],
   ['Total investido (aportes)',brl(inv)],['Liquidez diária',brl(liq)],['Próximo vencimento',prox?`${prox.venc.slice(8,10)}/${prox.venc.slice(5,7)}/${prox.venc.slice(2,4)} <small style="display:inline">${esc(prox.banco)}</small>`:'—']].map(([a,b])=>`<div class="k"><small>${a}</small><b>${b}</b></div>`).join('');
  // evolução 12 meses
  const ms=[];for(let i=11;i>=0;i--)ms.push(addM(m,-i));const ev=ms.map(x=>({m:x,v:S.inv.reduce((s,a)=>s+invVal(a,x).v,0)}));
@@ -549,11 +554,13 @@ function renderInv(){invS();const m=$('vMes').value||curM(),pm=addM(m,-1);const 
   <div style="font-size:10px;color:${cor}">${o.g?`Coberto pelo FGC: ${brl(o.g)} de ${brl(lim)} (${pct.toFixed(0)}%)${pct>=100?' — ACIMA DO LIMITE':pct>=85?' — perto do limite':''}`:'Sem produtos cobertos pelo FGC'}</div></div>`}).join('')||'<p class="mut">—</p>';
  // tabela
  const TX=a=>a.taxaTipo==='cdi'?`${a.taxa}% CDI`:a.taxaTipo==='pre'?`${a.taxa}% a.a.`:a.taxaTipo==='ipca'?`IPCA+${a.taxa}%`:'—';
- $('vTab').innerHTML=`<tr><th>Banco</th><th>Produto</th><th>Nome / objetivo</th><th>Taxa</th><th class="n">Aplicado</th><th>Aplicação</th><th>Vencimento</th><th>Liquidez</th><th class="n">Saldo em ${ml(m)}</th><th class="n">Rend. mês</th><th></th></tr>`+
+ $('vTab').innerHTML=`<tr><th>Banco</th><th>Produto</th><th>Nome / objetivo</th><th>Taxa</th><th class="n">Aplicado</th><th>Aplicação</th><th>Vencimento</th><th>Liquidez</th><th class="n">Saldo bruto em ${ml(m)}</th><th class="n">IR</th><th class="n">Líquido</th><th class="n">Rend. mês</th><th></th></tr>`+
  S.inv.slice().sort((a,b)=>(a.banco||'').localeCompare(b.banco||'')).map(a=>{const r=invVal(a,m),p=invVal(a,pm),rm=r.v-p.v-r.aport-(a.data.slice(0,7)===m?+a.aplicado:0);const sv=(a.saldos||{})[m];
   return`<tr data-id="${a.id}" style="${a.resgatado&&a.resgatado<=m?'opacity:.45':''}"><td>${esc(a.banco)}</td><td>${esc(a.prod)}${FGC_OK(a.prod)?'':' <span class="mut" style="font-size:9px">sem FGC</span>'}</td><td>${esc(a.nome||'')}${a.obj?`<br><span class="mut" style="font-size:10px">${esc(a.obj)}</span>`:''}</td><td>${TX(a)}</td>
   <td class="n">${brl(+a.aplicado)}</td><td>${a.data.split('-').reverse().join('/')}</td><td>${a.venc?a.venc.split('-').reverse().join('/'):'—'}</td><td>${a.liq==='diaria'?'Diária':'No vencimento'}</td>
   <td class="n"><input data-sal="${a.id}" value="${sv!=null?(+sv).toFixed(2).replace('.',','):''}" placeholder="≈ ${r.v.toFixed(2).replace('.',',')}" style="width:110px;${sv!=null?'':'font-style:italic'}" ${m<a.data.slice(0,7)?'disabled':''}></td>
+  <td class="n">${m<a.data.slice(0,7)?'':(irIsento(a)?'isento':`${(irAliq(a,m)*100).toFixed(1).replace('.',',')}%<br><span class="mut" style="font-size:10px">${brl(invIR(a,m))}</span>`)}</td>
+  <td class="n"><b>${m<a.data.slice(0,7)?'':brl(r.v-invIR(a,m))}</b></td>
   <td class="n ${rm<0?'neg':'pos'}">${m<a.data.slice(0,7)?'':brl(rm)}</td>
   <td style="white-space:nowrap"><button class="b g" style="padding:3px 8px" onclick="invMov('${a.id}')" title="Aporte ou resgate">±</button> <button class="b g" style="padding:3px 8px" onclick="invEdit('${a.id}')">Editar</button> <button class="x" onclick="invDel('${a.id}')">×</button></td></tr>`}).join('');
  // vencimentos
