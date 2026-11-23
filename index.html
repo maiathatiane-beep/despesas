@@ -413,8 +413,8 @@ async function novoMes(){const lr=[...new Set(S.rec.map(o=>o.mes))].sort().pop()
 $('nMes').onclick=novoMes;
 /* ---------- HOLERITE ---------- */
 let HOL=[];
-const HDEF={sal:'',adic:'',salMin:1621,insalPct:20,pericPct:30,dep:'',dedDep:189.59,aliq:27.5,parcela:908.73,adiantPct:'',sind:'',va:'',vaDia:'',cafeDia:'',vaDias:'',vaAssid:'',vaReaj:'',inss:'1621:7.5; 2902.84:9; 4354.27:12; 8475.55:14'};
-function holCfg(){S.holCfg=S.holCfg||{};for(const k in HDEF)if(S.holCfg[k]===undefined)S.holCfg[k]=HDEF[k];return S.holCfg}
+const HDEF={sal:'',adic:'',salMin:1621,insalPct:20,pericPct:30,dep:'',dedDep:189.59,aliq:27.5,parcela:908.73,adiantPct:'',sind:'',va:'',vaDia:35.46,cafeDia:4.43,vaDias:'',vaAssid:43,vaReaj:'',inss:'1621:7.5; 2902.84:9; 4354.27:12; 8475.55:14'};
+function holCfg(){S.holCfg=S.holCfg||{};if(!S.holCfg._vaPre){for(const k of['vaDia','cafeDia','vaAssid'])if(S.holCfg[k]===''||S.holCfg[k]===undefined)S.holCfg[k]=HDEF[k];S.holCfg._vaPre=1}for(const k in HDEF)if(S.holCfg[k]===undefined)S.holCfg[k]=HDEF[k];return S.holCfg}
 const r2=x=>Math.round((x+1e-9)*100)/100;
 const nv=s=>parseVal(s);
 function impModo(m){$('impFat').classList.toggle('hidden',m!=='fat');$('impHol').classList.toggle('hidden',m!=='hol');document.querySelectorAll('#impModo button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));if(m==='hol')renderHolCfg()}
