@@ -101,7 +101,7 @@ td.n,th.n{text-align:right}td.n input{text-align:right}
 </section>
 
 <section id="t-inv" class="hidden">
- <div class="bar">Mês de referência <select id="vMes"></select><span style="flex:1"></span>
+ <div class="bar">Mês de referência <select id="vMes"></select> &nbsp;Banco <select id="vBco"></select><span style="flex:1"></span>
   <button class="b g" onclick="invCfg()">Taxas (CDI / IPCA)</button><button class="b" onclick="invEdit()">+ Nova aplicação</button></div>
  <div id="vRes"></div>
  <div class="kpis" id="vKpis"></div>
@@ -531,20 +531,20 @@ function irIsento(a){return /LCI|LCA|POUP|ISENT|CRI|CRA|DEB.*INCENT/i.test(a.pro
 function irDias(a,m){const fim=m>=curM()?today():(m+'-'+String(new Date(+m.slice(0,4),+m.slice(5,7),0).getDate()).padStart(2,'0'));return Math.max(0,Math.round((new Date(fim)-new Date(a.data))/864e5))}
 function irAliq(a,m){if(irIsento(a))return 0;const d=irDias(a,m);return d<=180?.225:d<=360?.2:d<=720?.175:.15}
 function invIR(a,m){const r=invVal(a,m).v-investido(a,m);return r>0?r*irAliq(a,m):0}
-function renderInv(){invS();const m=$('vMes').value||curM(),pm=addM(m,-1);const A=S.inv.filter(a=>a.data.slice(0,7)<=m&&!(a.resgatado&&a.resgatado<m));
- const tot=A.reduce((s,a)=>s+invVal(a,m).v,0),totP=S.inv.reduce((s,a)=>s+invVal(a,pm).v,0),aport=A.reduce((s,a)=>s+(a.data.slice(0,7)===m?+a.aplicado:0)+invVal(a,m).aport,0);
+function renderInv(){invS();const bs=[...new Set(S.inv.map(x=>x.banco||'—'))].sort(),bE=$('vBco'),bv=bE.value;bE.innerHTML='<option value="">Todos</option>'+bs.map(x=>`<option${x===bv?' selected':''}>${esc(x)}</option>`).join('');const LB=S.inv.filter(x=>!bE.value||(x.banco||'—')===bE.value);const m=$('vMes').value||curM(),pm=addM(m,-1);const A=LB.filter(a=>a.data.slice(0,7)<=m&&!(a.resgatado&&a.resgatado<m));
+ const tot=A.reduce((s,a)=>s+invVal(a,m).v,0),totP=LB.reduce((s,a)=>s+invVal(a,pm).v,0),aport=A.reduce((s,a)=>s+(a.data.slice(0,7)===m?+a.aplicado:0)+invVal(a,m).aport,0);
  const rend=tot-totP-aport,inv=A.reduce((s,a)=>s+investido(a,m),0),liq=A.filter(a=>a.liq==='diaria').reduce((s,a)=>s+invVal(a,m).v,0);
  const ir=A.reduce((s,a)=>s+invIR(a,m),0);
  const prox=S.inv.filter(a=>a.venc&&a.venc>=today()&&!a.resgatado).sort((x,y)=>x.venc.localeCompare(y.venc))[0];
  $('vKpis').innerHTML=[['Saldo bruto',brl(tot)],['IR estimado',`<span class="neg">−${brl(ir)}</span>`],['Saldo líquido',brl(tot-ir)],['Rendimento no mês',`<span class="${rend<0?'neg':'pos'}">${brl(rend)}</span>`],['Rendimento acumulado',`<span class="${tot-inv<0?'neg':'pos'}">${brl(tot-inv)}</span>`],
   ['Total investido (aportes)',brl(inv)],['Liquidez diária',brl(liq)],['Próximo vencimento',prox?`${prox.venc.slice(8,10)}/${prox.venc.slice(5,7)}/${prox.venc.slice(2,4)} <small style="display:inline">${esc(prox.banco)}</small>`:'—']].map(([a,b])=>`<div class="k"><small>${a}</small><b>${b}</b></div>`).join('');
  // evolução 12 meses
- const ms=[];for(let i=11;i>=0;i--)ms.push(addM(m,-i));const ev=ms.map(x=>({m:x,v:S.inv.reduce((s,a)=>s+invVal(a,x).v,0)}));
+ const ms=[];for(let i=11;i>=0;i--)ms.push(addM(m,-i));const ev=ms.map(x=>({m:x,v:LB.reduce((s,a)=>s+invVal(a,x).v,0)}));
  const W=560,H=220,L=58,B=26,mx=nice(Math.max(1,...ev.map(e=>e.v)));const px=i=>L+(W-L-10)*i/(ev.length-1),py=v=>H-B-(H-B-12)*v/mx;
  let sv='';for(let i=0;i<=4;i++){const y=H-B-(H-B-12)*i/4;sv+=`<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="#f3e6ec"/><text x="${L-6}" y="${y+4}" text-anchor="end" font-size="10" fill="#9a8494">${(mx*i/4/1000).toFixed(0)}k</text>`}
  sv+=`<path d="M${ev.map((e,i)=>px(i)+','+py(e.v)).join('L')}L${px(ev.length-1)},${H-B}L${px(0)},${H-B}Z" fill="#e9a0b8" opacity=".25"/><polyline points="${ev.map((e,i)=>px(i)+','+py(e.v)).join(' ')}" fill="none" stroke="#c2577f" stroke-width="2.5"/>`;
  ev.forEach((e,i)=>{sv+=`<circle cx="${px(i)}" cy="${py(e.v)}" r="4" fill="#c2577f" data-tip="${ml(e.m)}: ${brl(e.v)}"/>`;if(i%2==0||i==ev.length-1)sv+=`<text x="${px(i)}" y="${H-8}" text-anchor="middle" font-size="10" fill="#9a8494">${ml(e.m)}</text>`});
- $('vEvo').innerHTML=S.inv.length?`<svg viewBox="0 0 ${W} ${H}" width="100%">${sv}</svg>`:'<p class="mut">Cadastre suas aplicações em "+ Nova aplicação".</p>';
+ $('vEvo').innerHTML=LB.length?`<svg viewBox="0 0 ${W} ${H}" width="100%">${sv}</svg>`:'<p class="mut">Cadastre suas aplicações em "+ Nova aplicação".</p>';
  // por banco + FGC
  const bb={};A.forEach(a=>{const k=a.banco||'—';bb[k]=bb[k]||{t:0,g:0};const v=invVal(a,m).v;bb[k].t+=v;if(FGC_OK(a.prod))bb[k].g+=v});
  const arr=Object.entries(bb).sort((a,b)=>b[1].t-a[1].t),bmx=arr[0]?.[1].t||1,lim=S.invCfg.fgc;
@@ -555,10 +555,10 @@ function renderInv(){invS();const m=$('vMes').value||curM(),pm=addM(m,-1);const 
  // tabela
  const TX=a=>a.taxaTipo==='cdi'?`${a.taxa}% CDI`:a.taxaTipo==='pre'?`${a.taxa}% a.a.`:a.taxaTipo==='ipca'?`IPCA+${a.taxa}%`:'—';
  $('vTab').innerHTML=`<tr><th>Banco</th><th>Produto</th><th>Nome / objetivo</th><th>Taxa</th><th class="n">Aplicado</th><th>Aplicação</th><th>Vencimento</th><th>Liquidez</th><th class="n">Saldo bruto em ${ml(m)}</th><th class="n">IR</th><th class="n">Líquido</th><th class="n">Rend. mês</th><th></th></tr>`+
- S.inv.slice().sort((a,b)=>(a.banco||'').localeCompare(b.banco||'')).map(a=>{const r=invVal(a,m),p=invVal(a,pm),rm=r.v-p.v-r.aport-(a.data.slice(0,7)===m?+a.aplicado:0);const sv=(a.saldos||{})[m];
+ LB.slice().sort((a,b)=>(a.banco||'').localeCompare(b.banco||'')).map(a=>{const r=invVal(a,m),p=invVal(a,pm),rm=r.v-p.v-r.aport-(a.data.slice(0,7)===m?+a.aplicado:0);const sv=(a.saldos||{})[m];
   return`<tr data-id="${a.id}" style="${a.resgatado&&a.resgatado<=m?'opacity:.45':''}"><td>${esc(a.banco)}</td><td>${esc(a.prod)}${FGC_OK(a.prod)?'':' <span class="mut" style="font-size:9px">sem FGC</span>'}</td><td>${esc(a.nome||'')}${a.obj?`<br><span class="mut" style="font-size:10px">${esc(a.obj)}</span>`:''}</td><td>${TX(a)}</td>
   <td class="n">${brl(+a.aplicado)}</td><td>${a.data.split('-').reverse().join('/')}</td><td>${a.venc?a.venc.split('-').reverse().join('/'):'—'}</td><td>${a.liq==='diaria'?'Diária':'No vencimento'}</td>
-  <td class="n"><input data-sal="${a.id}" value="${sv!=null?(+sv).toFixed(2).replace('.',','):''}" placeholder="≈ ${r.v.toFixed(2).replace('.',',')}" style="width:110px;${sv!=null?'':'font-style:italic'}" ${m<a.data.slice(0,7)?'disabled':''}></td>
+  <td class="n"><input data-sal="${a.id}" value="${sv!=null?(+sv).toFixed(2).replace('.',','):''}" placeholder="✎ ≈ ${r.v.toFixed(2).replace('.',',')}" title="Digite o saldo bruto do banco" style="width:110px;border:1.5px solid #e08aa8;border-radius:8px;padding:3px 6px;background:#fff;${sv!=null?'':'font-style:italic'}" ${m<a.data.slice(0,7)?'disabled':''}></td>
   <td class="n">${m<a.data.slice(0,7)?'':(irIsento(a)?'isento':`${(irAliq(a,m)*100).toFixed(1).replace('.',',')}%<br><span class="mut" style="font-size:10px">${brl(invIR(a,m))}</span>`)}</td>
   <td class="n"><b>${m<a.data.slice(0,7)?'':brl(r.v-invIR(a,m))}</b></td>
   <td class="n ${rm<0?'neg':'pos'}">${m<a.data.slice(0,7)?'':brl(rm)}</td>
@@ -573,7 +573,7 @@ function renderInv(){invS();const m=$('vMes').value||curM(),pm=addM(m,-1);const 
   <select id="rs_${o.id}">${S.inv.filter(a=>!a.resgatado).map(a=>`<option value="${a.id}">${esc(a.banco)} · ${esc(a.prod)} ${esc(a.nome||'')}</option>`).join('')}</select>
   <button class="b" style="padding:5px 12px" onclick="invLink('${o.id}')">Registrar aporte</button><button class="b g" style="padding:5px 12px" onclick="invSkip('${o.id}')">Ignorar</button></div>`).join(''):''}
 $('vTab').addEventListener('change',e=>{const id=e.target.dataset.sal;if(!id)return;const a=S.inv.find(x=>x.id===id),m=$('vMes').value;a.saldos=a.saldos||{};const t=e.target.value.trim();if(t==='')delete a.saldos[m];else a.saldos[m]=parseVal(t);setTimeout(save)});
-$('vMes').onchange=renderInv;
+$('vMes').onchange=renderInv;$('vBco').onchange=renderInv;
 function invForm(html,onOk){const w=document.createElement('div');w.style.cssText='position:fixed;inset:0;background:rgba(61,42,58,.35);display:flex;align-items:center;justify-content:center;z-index:98;padding:10px';
  w.innerHTML=`<div class="card" style="width:100%;max-width:560px;max-height:92vh;overflow:auto">${html}<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="b g" data-x>Cancelar</button><button class="b" data-ok>Salvar</button></div></div>`;
  document.body.appendChild(w);w.querySelector('[data-x]').onclick=()=>w.remove();w.querySelector('[data-ok]').onclick=()=>{if(onOk(w)!==false)w.remove()};return w}
