@@ -595,12 +595,12 @@ $('iMes').addEventListener('change',impChanged);
 function showImp(items,src){if(!impBank){toast('Escolha primeiro qual cartão é essa fatura');return}
  imp=items.map(o=>{o.desc=up(o.desc);const neg=o.valor<0;return{...o,cat:cat(o.desc,'cartao'),neg}});
  $('impBox').classList.remove('hidden');impSrc=src;markDup();renderImp();$('impBox').scrollIntoView({behavior:'smooth'})}
-function markDup(){const m=$('iMes').value,b=impBank;
+function markDup(keep){const m=$('iMes').value,b=impBank;
  const pool=S.desp.filter(o=>o.mes===m&&o.tipo==='cartao'&&(o.banco===b||!o.banco));const used=new Set();
  const find=(o,strict)=>pool.find(x=>!used.has(x.id)&&Math.round(x.valor*100)===Math.round(o.valor*100)&&(!strict||x.data===o.data||base(x.desc)===base(o.desc)));
- imp.forEach(o=>o.match=null);const act=imp.filter(o=>!(o.neg&&$('iSkipNeg').checked));
+ imp.forEach(o=>o.match=null);const act=imp.filter(o=>keep?o.sel:!(o.neg&&$('iSkipNeg').checked));
  for(const strict of[true,false])act.forEach(o=>{if(o.match)return;const x=find(o,strict);if(x){o.match=x.id;used.add(x.id)}});
- imp.forEach(o=>{o.dup=!!o.match;o.sel=!(o.neg&&$('iSkipNeg').checked)});
+ imp.forEach(o=>{o.dup=!!o.match;if(!keep)o.sel=!(o.neg&&$('iSkipNeg').checked)});
  impDel=pool.filter(x=>x.banco===b&&!used.has(x.id)).map(x=>({x,del:true}));
  $('iInfo').innerHTML=`${esc(impSrc)} → <b>${esc(b)}</b> em <b>${ml(m)}</b>: ${imp.filter(o=>o.sel&&!o.dup).length} novos · ${imp.filter(o=>o.sel&&o.dup).length} já lançados (serão atualizados) · <span class="neg">${impDel.length} lançados antes que não estão nesta fatura (serão apagados)</span>`}
 function renderImp(){const cats=Object.keys(S.cats);
@@ -613,7 +613,7 @@ function renderImp(){const cats=Object.keys(S.cats);
  $('iDelBox').innerHTML=impDel.length?`<div class="card" style="border:1px solid #f3c6d3;background:#fff8fa"><h3 class="neg" style="color:var(--red)">Serão apagados (estavam em ${ml($('iMes').value)} / ${esc(impBank)} mas não aparecem nesta fatura)</h3>
   <table>${impDel.map((d,i)=>`<tr><td style="width:30px"><input type="checkbox" data-del="${i}" ${d.del?'checked':''}></td><td>${esc(d.x.desc)}</td><td class="n">${brl(d.x.valor)}</td><td class="mut">${esc(d.x.cat)}</td></tr>`).join('')}</table>
   <p class="mut" style="font-size:11px">Desmarque o que quiser manter.</p></div>`:''}
-$('iTab').addEventListener('change',e=>{const f=e.target.dataset.f;if(!f)return;const o=imp[+e.target.closest('tr').dataset.i];o[f]=f==='sel'?e.target.checked:f==='valor'?parseVal(e.target.value):f==='desc'?up(e.target.value):e.target.value;if(f==='sel'||f==='valor'){markDup()}renderImp()});
+$('iTab').addEventListener('change',e=>{const f=e.target.dataset.f;if(!f)return;const o=imp[+e.target.closest('tr').dataset.i];o[f]=f==='sel'?e.target.checked:f==='valor'?parseVal(e.target.value):f==='desc'?up(e.target.value):e.target.value;if(f==='sel'||f==='valor'){markDup(true)}renderImp()});
 $('iDelBox').addEventListener('change',e=>{const i=e.target.dataset.del;if(i!==undefined)impDel[+i].del=e.target.checked});
 $('iSkipNeg').onchange=()=>{markDup();renderImp()};
 $('iGo').onclick=async()=>{const m=$('iMes').value,p=$('iPes').value,v=$('iVenc').value||null,bk=impBank;
